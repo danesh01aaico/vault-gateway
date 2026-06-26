@@ -1,0 +1,26 @@
+apiVersion: v2
+name: vault-gateway
+description: |
+  Vault Gateway is a HashiCorp Vault API-compatible shim that routes secret
+  reads to AWS Secrets Manager, Azure Key Vault, GCP Secret Manager, or a real
+  HashiCorp Vault. It authenticates Kubernetes service-account JWTs via the
+  TokenReview API and exposes a Vault-compatible HTTPS API on port 8200.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - vault
+  - secrets
+  - secrets-management
+  - aws-secrets-manager
+  - azure-key-vault
+  - gcp-secret-manager
+  - kubernetes
+  - security
+home: https://github.com/vault-gateway/vault-gateway
+sources:
+  - https://github.com/vault-gateway/vault-gateway
+maintainers:
+  - name: Vault Gateway Maintainers
+    email: maintainers@vault-gateway.io
+    url: https://github.com/vault-gateway/vault-gateway

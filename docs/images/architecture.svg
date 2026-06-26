@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="520" fill="#f8fafc"/>
+  <text x="450" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#0f172a">Vault Gateway — Architecture</text>
+
+  <!-- Bank-Vaults webhook -->
+  <rect x="40" y="70" width="200" height="70" rx="8" fill="#e0e7ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="140" y="100" text-anchor="middle" font-size="13" font-weight="bold" fill="#312e81">Bank-Vaults webhook</text>
+  <text x="140" y="120" text-anchor="middle" font-size="11" fill="#3730a3">mutates pod at admission</text>
+
+  <!-- App pod with vault-env -->
+  <rect x="40" y="190" width="200" height="100" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
+  <text x="140" y="216" text-anchor="middle" font-size="13" font-weight="bold" fill="#14532d">Application Pod</text>
+  <rect x="60" y="228" width="160" height="48" rx="6" fill="#bbf7d0" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="140" y="248" text-anchor="middle" font-size="12" font-weight="bold" fill="#14532d">vault-env (init shim)</text>
+  <text x="140" y="265" text-anchor="middle" font-size="10" fill="#166534">login + read secrets</text>
+
+  <!-- Gateway -->
+  <rect x="320" y="120" width="280" height="240" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="2.5"/>
+  <text x="460" y="146" text-anchor="middle" font-size="15" font-weight="bold" fill="#7c2d12">Vault Gateway</text>
+
+  <rect x="340" y="158" width="240" height="64" rx="6" fill="#ffedd5" stroke="#fb923c" stroke-width="1.5"/>
+  <text x="460" y="178" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c2d12">Vault-compatible HTTP API (TLS 1.2+)</text>
+  <text x="460" y="195" text-anchor="middle" font-size="10" fill="#9a3412">/v1/auth/kubernetes/login</text>
+  <text x="460" y="210" text-anchor="middle" font-size="10" fill="#9a3412">/v1/secret/data/{path}  ·  /v1/sys/health</text>
+
+  <rect x="340" y="232" width="240" height="40" rx="6" fill="#ffedd5" stroke="#fb923c" stroke-width="1.5"/>
+  <text x="460" y="257" text-anchor="middle" font-size="11" fill="#7c2d12">TokenReview · RBAC (glob) · TTL cache</text>
+
+  <rect x="340" y="282" width="240" height="50" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="460" y="312" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c2d12">Backend router</text>
+
+  <!-- Kubernetes API -->
+  <rect x="320" y="400" width="280" height="56" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-width="2"/>
+  <text x="460" y="424" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e293b">Kubernetes API — TokenReview</text>
+  <text x="460" y="442" text-anchor="middle" font-size="10" fill="#475569">RBAC: tokenreviews.create only</text>
+
+  <!-- Backends -->
+  <g font-size="11" font-weight="bold" fill="#1e293b">
+    <rect x="700" y="120" width="160" height="48" rx="6" fill="#fef9c3" stroke="#eab308" stroke-width="1.5"/>
+    <text x="780" y="149" text-anchor="middle">AWS Secrets Manager</text>
+
+    <rect x="700" y="180" width="160" height="48" rx="6" fill="#cffafe" stroke="#06b6d4" stroke-width="1.5"/>
+    <text x="780" y="209" text-anchor="middle">Azure Key Vault</text>
+
+    <rect x="700" y="240" width="160" height="48" rx="6" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.5"/>
+    <text x="780" y="269" text-anchor="middle">HashiCorp Vault</text>
+
+    <rect x="700" y="300" width="160" height="48" rx="6" fill="#fce7f3" stroke="#ec4899" stroke-width="1.5"/>
+    <text x="780" y="329" text-anchor="middle">GCP Secret Manager</text>
+  </g>
+  <text x="780" y="372" text-anchor="middle" font-size="10" fill="#64748b">identity federation — no static creds</text>
+
+  <!-- Arrows -->
+  <!-- webhook -> pod -->
+  <line x1="140" y1="140" x2="140" y2="188" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- vault-env -> gateway API -->
+  <line x1="240" y1="245" x2="338" y2="195" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="288" y="210" text-anchor="middle" font-size="9" fill="#334155">HTTPS :8200</text>
+  <!-- gateway -> k8s api (tokenreview) -->
+  <line x1="460" y1="272" x2="460" y2="398" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- router -> backends -->
+  <line x1="580" y1="300" x2="698" y2="144" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <line x1="580" y1="305" x2="698" y2="204" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <line x1="580" y1="310" x2="698" y2="264" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <line x1="580" y1="315" x2="698" y2="324" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- footer -->
+  <text x="460" y="492" text-anchor="middle" font-size="11" fill="#475569">No Kubernetes Secret in etcd · Prometheus :9090 /metrics · slog JSON audit</text>
+</svg>

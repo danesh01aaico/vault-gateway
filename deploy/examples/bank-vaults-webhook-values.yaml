@@ -1,0 +1,48 @@
+# Helm values for the Bank-Vaults vault-secrets-webhook chart, configured so
+# that env-var injection targets vault-gateway instead of a real Vault.
+#
+# NOTE: prefer the umbrella chart (deploy/helm/vault-gateway-stack) which
+# installs both this webhook and vault-gateway together with correct startup
+# ordering. Use this file only if you manage the two components separately.
+#
+# Install standalone:
+#   helm repo add banzaicloud-stable https://kubernetes-charts.banzaicloud.com
+#   helm upgrade --install vault-secrets-webhook \
+#     banzaicloud-stable/vault-secrets-webhook \
+#     --namespace vault-system --create-namespace \
+#     -f bank-vaults-webhook-values.yaml
+
+replicaCount: 2
+
+# Default Vault connection applied to every mutated pod unless the pod
+# overrides it via vault.security.banzaicloud.io/* annotations.
+env:
+  # Point the injector at the gateway's Vault-compatible API.
+  VAULT_ADDR: "https://vault-gateway.vault-system:8200"
+  # Default role used to authenticate workloads (matches config.auth.roles).
+  VAULT_ROLE: "default-role"
+  # The gateway serves a self-signed certificate by default.
+  VAULT_SKIP_VERIFY: "true"
+  # Vault image used by the vault-env init container.
+  VAULT_IMAGE: "hashicorp/vault:latest"
+
+# Default annotations injected onto mutated pods (chart-version dependent).
+vaultEnv:
+  # Address of the gateway service.
+  vaultAddress: "https://vault-gateway.vault-system:8200"
+  # Default Kubernetes auth role.
+  vaultRole: "default-role"
+
+# Run the webhook itself with a hardened security context.
+securityContext:
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

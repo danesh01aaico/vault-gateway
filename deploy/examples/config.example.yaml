@@ -1,0 +1,65 @@
+# Copyright 2026 The Vault Gateway Authors
+#
+# Example Vault Gateway configuration. Pass it with:
+#   vault-gateway --config config.example.yaml
+#
+# See docs/configuration.md for the full reference.
+server:
+  port: 8200
+  host: "0.0.0.0"
+  tls:
+    enabled: true
+    certFile: "./dev/tls/tls.crt"
+    keyFile: "./dev/tls/tls.key"
+    minVersion: "1.2"
+  readTimeout: 30s
+  writeTimeout: 30s
+  idleTimeout: 120s
+  maxRequestBodySize: 1048576
+  shutdownGracePeriod: 15s
+
+backend: "aws"
+
+aws:
+  region: "me-south-1"
+  secretPrefix: ""
+  maxRetries: 3
+  cache:
+    enabled: true
+    ttl: 300s
+    maxEntries: 10000
+    negativeTTL: 30s
+
+auth:
+  tokenTTL: 3600s
+  tokenCleanupInterval: 60s
+  maxTokensPerIdentity: 100
+  roles:
+    opus-workloads:
+      allowedNamespaces:
+        - "opus-apps"
+        - "opus-system"
+      allowedServiceAccounts:
+        - "*"
+      allowedPaths:
+        - "opus/*"
+      tokenTTL: 1800s
+
+logging:
+  level: "info"
+  format: "json"
+
+metrics:
+  enabled: true
+  port: 9090
+  path: "/metrics"
+
+rateLimit:
+  enabled: true
+  requestsPerSecond: 100
+  burst: 200
+
+healthCheck:
+  backendCheck: false
+  backendCheckTimeout: 5s
+  backendCheckInterval: 30s

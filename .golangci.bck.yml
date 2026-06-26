@@ -1,0 +1,56 @@
+# golangci-lint configuration (schema compatible with v1.6x)
+#
+# Note: exportloopref is intentionally NOT enabled. It is deprecated/removed in
+# recent golangci-lint releases, and the loop-variable capture footgun it
+# guarded against no longer exists as of Go 1.22+ (each iteration gets a fresh
+# copy of the loop variable). Adding it would be dead config at best.
+
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - bodyclose
+    - noctx
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - unparam
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/vault-gateway/vault-gateway
+  gofmt:
+    simplify: true
+  gosec:
+    excludes: []
+  misspell:
+    locale: US
+
+issues:
+  # Re-enable default exclude rules off (we manage exclusions explicitly).
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Test files: relax security and unchecked-error rules common in tests.
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+        - unparam
+    # G404 (weak RNG) is acceptable in tests; G101 (hardcoded creds) flags
+    # test fixtures and placeholder tokens.
+    - path: _test\.go
+      text: "(G404|G101)"
+      linters:
+        - gosec

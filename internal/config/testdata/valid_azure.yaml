@@ -1,0 +1,30 @@
+server:
+  port: 8200
+  host: "0.0.0.0"
+  tls:
+    enabled: false
+
+backend: azure
+
+azure:
+  vaultURL: "https://my-vault.vault.azure.net/"
+  namingStrategy: json
+  cache:
+    enabled: true
+    ttl: 300s
+    maxEntries: 500
+    negativeTTL: 15s
+
+auth:
+  roles:
+    reader:
+      allowedNamespaces:
+        - default
+      allowedServiceAccounts:
+        - reader-sa
+      allowedPaths:
+        - "secret/data/*"
+
+metrics:
+  enabled: true
+  port: 9090

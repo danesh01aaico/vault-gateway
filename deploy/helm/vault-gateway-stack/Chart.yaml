@@ -1,0 +1,37 @@
+apiVersion: v2
+name: vault-gateway-stack
+description: |
+  Umbrella chart that installs Vault Gateway and the Bank-Vaults secrets webhook
+  together in the correct startup order. A single helm install brings up the full
+  secret injection platform: Bank-Vaults mutates pods, vault-env fetches secrets,
+  Vault Gateway routes to your cloud secret manager (AWS SM, Azure KV, GCP SM, or
+  real HashiCorp Vault).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - vault
+  - secrets
+  - bank-vaults
+  - aws-secrets-manager
+  - azure-key-vault
+  - gcp-secret-manager
+  - kubernetes
+  - security
+home: https://github.com/vault-gateway/vault-gateway
+sources:
+  - https://github.com/vault-gateway/vault-gateway
+maintainers:
+  - name: Vault Gateway Maintainers
+    email: maintainers@vault-gateway.io
+dependencies:
+  # Our gateway — local subchart
+  - name: vault-gateway
+    version: "0.1.0"
+    repository: "file://../vault-gateway"
+
+  # Bank-Vaults mutating webhook — injects vault-env init container into pods
+  - name: vault-secrets-webhook
+    version: "1.20.0"
+    repository: "https://kubernetes-charts.banzaicloud.com"
+    condition: vault-secrets-webhook.enabled

@@ -1,0 +1,21 @@
+# Azure Key Vault overlay for vault-gateway.
+# Usage: helm install vault-gateway ./vault-gateway -f values-azure.yaml
+backend: "azure"
+
+serviceAccount:
+  annotations:
+    # Replace with the client ID of the managed identity.
+    # Created by azure-workload-identity-setup.sh.
+    azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
+  labels:
+    azure.workload.identity/use: "true"
+
+# The webhook for Azure Workload Identity requires this label on the pod too.
+podLabels:
+  azure.workload.identity/use: "true"
+
+config:
+  backend:
+    type: "azure"
+  azure:
+    vaultURL: "https://my-keyvault.vault.azure.net"

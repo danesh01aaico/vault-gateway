@@ -1,0 +1,31 @@
+server:
+  port: 8200
+  host: "127.0.0.1"
+  tls:
+    enabled: false
+
+backend: vault
+
+vault:
+  address: "https://vault.internal:8200"
+  authPath: kubernetes
+  role: gateway
+  tlsSkipVerify: false
+  cache:
+    enabled: false
+
+auth:
+  tokenTTL: 7200s
+  roles:
+    platform:
+      allowedNamespaces:
+        - kube-system
+        - default
+      allowedServiceAccounts:
+        - platform-sa
+      allowedPaths:
+        - "secret/data/platform/*"
+
+metrics:
+  enabled: true
+  port: 9091

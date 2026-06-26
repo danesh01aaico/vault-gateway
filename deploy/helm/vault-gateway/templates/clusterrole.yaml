@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "vault-gateway.fullname" . }}
+  labels:
+    {{- include "vault-gateway.labels" . | nindent 4 }}
+rules:
+  # The gateway validates Kubernetes service-account JWTs via the TokenReview
+  # API. This is the ONLY permission it needs.
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create

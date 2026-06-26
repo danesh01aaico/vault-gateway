@@ -1,0 +1,9 @@
+# HashiCorp Vault passthrough overlay for vault-gateway.
+# Usage: helm install vault-gateway ./vault-gateway -f values-vault.yaml
+backend: "vault"
+
+config:
+  backend:
+    type: "vault"
+  vault:
+    address: "https://vault.vault-system:8200"

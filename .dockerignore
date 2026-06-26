@@ -1,0 +1,44 @@
+# Keep the build context small. Go source + go.mod/go.sum are NOT excluded.
+
+# Build outputs
+bin/
+dist/
+
+# VCS
+.git
+.gitignore
+
+# CI / tooling config not needed inside the image build
+.github/
+.golangci.yml
+.goreleaser.yml
+
+# Docs and markdown
+*.md
+docs/
+
+# Deployment manifests (Helm, examples) — not needed to compile the binary
+deploy/
+
+# Test / coverage artifacts
+coverage.out
+coverage.html
+*.test
+e2e/testdata/
+
+# Local development material
+dev/
+.env
+.env.*
+*.pem
+*.crt
+*.key
+
+# Editor / OS cruft
+.idea/
+.vscode/
+.DS_Store
+
+# Docker
+Dockerfile
+.dockerignore

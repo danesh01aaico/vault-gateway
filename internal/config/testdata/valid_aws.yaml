@@ -1,0 +1,51 @@
+server:
+  port: 8200
+  host: "0.0.0.0"
+  tls:
+    enabled: false
+  readTimeout: 30s
+  writeTimeout: 30s
+  idleTimeout: 120s
+  maxRequestBodySize: 1048576
+  shutdownGracePeriod: 15s
+
+backend: aws
+
+aws:
+  region: us-east-1
+  secretPrefix: "vg/"
+  maxRetries: 3
+  cache:
+    enabled: true
+    ttl: 300s
+    maxEntries: 1000
+    negativeTTL: 30s
+
+auth:
+  tokenTTL: 3600s
+  tokenCleanupInterval: 60s
+  maxTokensPerIdentity: 100
+  roles:
+    app:
+      allowedNamespaces:
+        - default
+        - payments
+      allowedServiceAccounts:
+        - payments-api
+      allowedPaths:
+        - "secret/data/payments/*"
+      tokenTTL: 1800s
+
+logging:
+  level: info
+  format: json
+
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+rateLimit:
+  enabled: true
+  requestsPerSecond: 100
+  burst: 200

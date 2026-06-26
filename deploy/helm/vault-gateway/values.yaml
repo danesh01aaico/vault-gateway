@@ -1,0 +1,229 @@
+# Default values for vault-gateway.
+# This is a YAML-formatted file.
+# Declare variables to be passed into the templates.
+
+# -- Number of gateway replicas. Ignored when autoscaling.enabled is true.
+replicaCount: 2
+
+image:
+  # -- Container image repository.
+  repository: ghcr.io/vault-gateway/vault-gateway
+  # -- Image tag. When empty, defaults to the chart's appVersion.
+  tag: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+
+# -- Secrets for pulling images from a private registry.
+# e.g. [{ name: my-registry-secret }]
+imagePullSecrets: []
+
+# -- Override the chart name portion of resource names.
+nameOverride: ""
+# -- Override the fully-qualified release name.
+fullnameOverride: ""
+
+# -- Top-level backend selector. One of: aws | azure | vault | gcp.
+# This is informational for the chart; the authoritative value lives under
+# .Values.config.backend.type which is rendered into the ConfigMap.
+backend: "aws"
+
+serviceAccount:
+  # -- Create a ServiceAccount for the gateway.
+  create: true
+  # -- Name of the ServiceAccount. When empty, a name is generated.
+  name: ""
+  # -- Annotations to add to the ServiceAccount.
+  # Used for cloud workload identity, e.g.:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/vault-gateway-role
+  #   azure.workload.identity/client-id: <client-id>
+  #   iam.gke.io/gcp-service-account: vault-gateway@project.iam.gserviceaccount.com
+  annotations: {}
+  # -- Extra labels for the ServiceAccount (e.g. azure.workload.identity/use: "true").
+  labels: {}
+
+# -- Annotations added to every gateway pod.
+podAnnotations: {}
+
+# -- Extra labels added to every gateway pod (e.g. azure.workload.identity/use: "true").
+podLabels: {}
+
+# -- Pod-level security context.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level security context. Hardened for a read-only root filesystem.
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  # -- Kubernetes Service type.
+  type: ClusterIP
+  # -- Vault-compatible HTTPS API port.
+  port: 8200
+  # -- Metrics + health port.
+  metricsPort: 9090
+
+# -- Container resource requests and limits.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  # -- Enable a HorizontalPodAutoscaler.
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  # -- Enable a PodDisruptionBudget.
+  enabled: true
+  minAvailable: 1
+
+# -- Node selector for pod scheduling.
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling.
+tolerations: []
+
+# -- Affinity rules. Defaults below provide soft anti-affinity across hosts.
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: vault-gateway
+          topologyKey: kubernetes.io/hostname
+
+# -- Topology spread constraints. Default spreads pods across zones.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app: vault-gateway
+
+networkPolicy:
+  # -- Create a NetworkPolicy for the gateway.
+  enabled: true
+  # -- Namespace where Prometheus runs (allowed to scrape :9090).
+  prometheusNamespace: "monitoring"
+
+serviceMonitor:
+  # -- Create a Prometheus Operator ServiceMonitor.
+  enabled: false
+  # -- Scrape interval.
+  interval: 30s
+  # -- Extra labels for the ServiceMonitor (e.g. to match a Prometheus selector).
+  labels: {}
+
+tls:
+  # -- Serve the API over HTTPS using a mounted TLS secret.
+  enabled: true
+  # -- Name of the Kubernetes TLS secret (must contain tls.crt and tls.key).
+  secretName: "vault-gateway-tls"
+  # -- When true, the secret must already exist (the chart does not create it).
+  existingSecret: true
+
+# -- Liveness probe tunables (httpGet /healthz on the metrics port).
+livenessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+# -- Readiness probe tunables (httpGet /readyz on the metrics port).
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+# -----------------------------------------------------------------------------
+# Application configuration.
+# This entire block is rendered verbatim into the ConfigMap as config.yaml and
+# mounted at /etc/vault-gateway/config.yaml.
+# -----------------------------------------------------------------------------
+config:
+  server:
+    # Vault-compatible HTTPS API listener.
+    address: "0.0.0.0:8200"
+    tls:
+      enabled: true
+      certFile: "/etc/vault-gateway/tls/tls.crt"
+      keyFile: "/etc/vault-gateway/tls/tls.key"
+    readTimeout: "30s"
+    writeTimeout: "30s"
+    idleTimeout: "120s"
+
+  backend:
+    # One of: aws | azure | vault | gcp.
+    type: "aws"
+    cacheTTL: "60s"
+
+  # AWS Secrets Manager backend settings (used when backend.type == aws).
+  aws:
+    region: "us-east-1"
+    # Optional prefix prepended to secret names on lookup.
+    secretPrefix: ""
+
+  # Azure Key Vault backend settings (used when backend.type == azure).
+  azure:
+    vaultURL: ""
+
+  # HashiCorp Vault backend settings (used when backend.type == vault).
+  vault:
+    address: ""
+    namespace: ""
+    tlsSkipVerify: false
+
+  # GCP Secret Manager backend settings (used when backend.type == gcp).
+  gcp:
+    projectID: ""
+
+  auth:
+    # Kubernetes TokenReview-based authentication.
+    kubernetes:
+      enabled: true
+    roles:
+      - name: "default-role"
+        namespaces:
+          - "default"
+        serviceAccounts:
+          - "*"
+        paths:
+          - "secret/*"
+
+  logging:
+    level: "info"
+    format: "json"
+
+  metrics:
+    enabled: true
+    address: "0.0.0.0:9090"
+    path: "/metrics"
+
+  healthCheck:
+    address: "0.0.0.0:9090"
+    livenessPath: "/healthz"
+    readinessPath: "/readyz"

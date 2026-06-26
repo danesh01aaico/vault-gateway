@@ -1,0 +1,40 @@
+# Example application Deployment that consumes secrets through vault-gateway
+# using the Bank-Vaults (vault-secrets-webhook) vault-env injection mechanism.
+#
+# The webhook intercepts pods carrying the vault.security.banzaicloud.io/*
+# annotations, mutates the container command to run via `vault-env`, and
+# replaces any env var whose value starts with "vault:" by fetching it from
+# the configured Vault address — here, the vault-gateway service.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-engine
+  namespace: default
+  labels:
+    app: workflow-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: workflow-engine
+  template:
+    metadata:
+      labels:
+        app: workflow-engine
+      annotations:
+        # Point vault-env at the gateway instead of a real Vault.
+        vault.security.banzaicloud.io/vault-addr: "https://vault-gateway.vault-system:8200"
+        # The role the gateway uses to authorize this workload (matches an
+        # entry under config.auth.roles).
+        vault.security.banzaicloud.io/vault-role: "default-role"
+        # The gateway serves a self-signed cert by default; skip verification.
+        vault.security.banzaicloud.io/vault-skip-verify: "true"
+    spec:
+      containers:
+        - name: workflow-engine
+          image: ghcr.io/opus/workflow-engine:latest
+          env:
+            # Resolved by vault-env at container start. The gateway maps this
+            # Vault-style path to the underlying cloud secret store.
+            - name: DB_PASSWORD
+              value: "vault:secret/data/opus/workflow-engine#db_password"

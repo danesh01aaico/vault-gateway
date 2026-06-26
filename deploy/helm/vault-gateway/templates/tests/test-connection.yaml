@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "vault-gateway.fullname" . }}-test-connection"
+  labels:
+    {{- include "vault-gateway.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: curl
+      image: curlimages/curl:latest
+      command:
+        - /bin/sh
+        - -c
+        - >-
+          curl -sf -k
+          https://{{ include "vault-gateway.fullname" . }}:{{ .Values.service.port }}/v1/sys/health

@@ -1,0 +1,45 @@
+# AWS Secrets Manager overlay
+# Usage:
+#   helm install vault-stack deploy/helm/vault-gateway-stack \
+#     -n vault-system --create-namespace \
+#     -f deploy/helm/vault-gateway-stack/values-aws.yaml
+#
+# Prerequisites:
+#   1. EKS OIDC provider configured for your cluster
+#   2. IAM role created with secretsmanager:GetSecretValue on your secret prefix
+#      See: deploy/examples/aws-irsa-setup.sh
+#   3. TLS secret created: kubectl create secret tls vault-gateway-tls ...
+
+vault-gateway:
+  serviceAccount:
+    annotations:
+      # Replace with your IAM role ARN
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/vault-gateway-role"
+
+  config:
+    backend:
+      type: aws
+      # Short TTL ensures rotated secrets reach new pods within 60 seconds.
+      # Lower this if your rotation window is tighter.
+      cacheTTL: 60s
+
+    aws:
+      region: us-east-1        # replace with your region
+      secretPrefix: ""         # e.g. "prod/" to namespace all secrets
+
+    auth:
+      kubernetes:
+        enabled: true
+      roles:
+        - name: default-role
+          namespaces:
+            - "*"
+          serviceAccounts:
+            - "*"
+          paths:
+            - "secret/*"
+        # Add per-team roles here:
+        # - name: payments-role
+        #   namespaces: [payments]
+        #   serviceAccounts: [payments-api]
+        #   paths: [payments/*]

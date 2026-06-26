@@ -1,0 +1,33 @@
+# Binaries / build output
+bin/
+dist/
+*.test
+*.exe
+
+# Coverage
+*.out
+coverage.html
+
+# Dependencies (vendor optional — uncomment if vendoring)
+# vendor/
+
+# Local TLS material (dev only)
+dev/tls/
+dev/**/*.pem
+dev/**/*.crt
+dev/**/*.key
+*.pem
+*.crt
+*.key
+
+# Environment
+.env
+.env.*
+
+# Editor / IDE
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

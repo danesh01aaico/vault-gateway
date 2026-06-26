@@ -1,0 +1,14 @@
+# AWS Secrets Manager overlay for vault-gateway.
+# Usage: helm install vault-gateway ./vault-gateway -f values-aws.yaml
+backend: "aws"
+
+serviceAccount:
+  annotations:
+    # Replace ACCOUNT with your AWS account ID. Created by aws-irsa-setup.sh.
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/vault-gateway-role"
+
+config:
+  backend:
+    type: "aws"
+  aws:
+    region: "me-south-1"

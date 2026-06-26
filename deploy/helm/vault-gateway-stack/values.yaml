@@ -1,0 +1,177 @@
+# =============================================================================
+# vault-gateway-stack — ONE file to configure the entire platform
+#
+# This installs two things together:
+#   1. Vault Gateway        — our tool, routes secrets from cloud SM to pods
+#   2. Bank-Vaults Webhook  — mutates pods, injects vault-env init container
+#
+# Install:
+#   helm install vault-stack deploy/helm/vault-gateway-stack \
+#     -n vault-system --create-namespace
+# =============================================================================
+
+
+# =============================================================================
+# CONFIGURE: WHICH CLOUD
+# One of: aws | azure | gcp | vault
+# =============================================================================
+backend: aws
+
+
+# =============================================================================
+# CONFIGURE: AWS SECRETS MANAGER
+# Fill this block when backend = aws
+# =============================================================================
+aws:
+  region: us-east-1
+  secretPrefix: ""                                               # optional e.g. "prod/"
+  iamRoleArn: "arn:aws:iam::ACCOUNT_ID:role/vault-gateway-role" # IRSA role ARN
+
+
+# =============================================================================
+# CONFIGURE: AZURE KEY VAULT
+# Fill this block when backend = azure
+# =============================================================================
+azure:
+  vaultURL: "https://YOUR-VAULT.vault.azure.net"
+  clientId: "YOUR-MANAGED-IDENTITY-CLIENT-ID"
+
+
+# =============================================================================
+# CONFIGURE: GCP SECRET MANAGER
+# Fill this block when backend = gcp
+# =============================================================================
+gcp:
+  projectId: "YOUR-GCP-PROJECT"
+  serviceAccount: "vault-gateway@PROJECT.iam.gserviceaccount.com"
+
+
+# =============================================================================
+# CONFIGURE: REAL HASHICORP VAULT
+# Fill this block when backend = vault
+# =============================================================================
+vault:
+  address: "https://vault.example.com"
+  token: ""                      # leave empty to use kubernetes auth instead
+
+
+# =============================================================================
+# CONFIGURE: RBAC — who can read which secrets
+# =============================================================================
+roles:
+  - name: default-role
+    namespaces: ["*"]            # all namespaces
+    serviceAccounts: ["*"]       # all service accounts
+    paths: ["secret/*"]          # all paths under secret/
+
+  # Tighten per team:
+  # - name: payments-role
+  #   namespaces: ["payments"]
+  #   serviceAccounts: ["payments-api"]
+  #   paths: ["payments/*"]
+
+
+# =============================================================================
+# CONFIGURE: TLS
+# Create this secret before installing:
+#   kubectl create secret tls vault-gateway-tls \
+#     --cert=tls.crt --key=tls.key -n vault-system
+# =============================================================================
+tls:
+  secretName: vault-gateway-tls
+
+
+# =============================================================================
+# VAULT GATEWAY — subchart config (passed to deploy/helm/vault-gateway)
+# Controls the gateway deployment itself.
+# No need to touch unless you have specific infra requirements.
+# =============================================================================
+vault-gateway:
+  replicaCount: 2
+  priorityClassName: system-cluster-critical   # starts before all app pods
+
+  serviceAccount:
+    create: true
+    name: vault-gateway
+    # Annotations are set automatically from the aws/azure/gcp blocks above
+    # via the Chart's template helpers. Do not set them here manually.
+    annotations: {}
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  config:
+    backend:
+      cacheTTL: 60s              # keep short — rotation window
+
+    logging:
+      level: info
+      format: json
+
+
+# =============================================================================
+# BANK-VAULTS WEBHOOK — subchart config (pulled from banzaicloud helm repo)
+# This is the component that watches for new pods and injects vault-env.
+# No need to touch for normal use.
+# =============================================================================
+vault-secrets-webhook:
+  enabled: true
+  replicaCount: 2
+
+  # Our own image is used for vault-env — same image as the gateway.
+  # No external image dependency. The /vault-env binary inside this image
+  # is copied into pods by the Bank-Vaults webhook init container step.
+  env:
+    VAULT_IMAGE: "ghcr.io/vault-gateway/vault-gateway:latest"
+    VAULT_ENV_LOG_LEVEL: "info"
+
+  # Waits for Vault Gateway to be healthy before accepting any pod mutations.
+  # Prevents vault-env init containers from starting before the gateway is ready.
+  initContainers:
+    - name: wait-for-vault-gateway
+      image: curlimages/curl:8.7.1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      command:
+        - sh
+        - -c
+        - |
+          until curl -sf http://vault-gateway.vault-system.svc.cluster.local:9090/healthz; do
+            echo "waiting for vault-gateway..."; sleep 3
+          done
+
+  webhook:
+    failurePolicy: Fail          # never silently skip injection
+    timeoutSeconds: 10
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

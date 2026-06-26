@@ -1,0 +1,100 @@
+# GoReleaser configuration (v2 schema)
+version: 2
+
+project_name: vault-gateway
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: vault-gateway
+    main: ./cmd/vault-gateway
+    binary: vault-gateway
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/vault-gateway/vault-gateway/internal/version.Version={{ .Version }}
+      - -X github.com/vault-gateway/vault-gateway/internal/version.GitCommit={{ .Commit }}
+      - -X github.com/vault-gateway/vault-gateway/internal/version.BuildDate={{ .Date }}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE*
+      - README*
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: git
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+dockers:
+  - id: vault-gateway-amd64
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/vault-gateway/vault-gateway:{{ .Version }}-amd64"
+      - "ghcr.io/vault-gateway/vault-gateway:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .Commit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+  - id: vault-gateway-arm64
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/vault-gateway/vault-gateway:{{ .Version }}-arm64"
+      - "ghcr.io/vault-gateway/vault-gateway:latest-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--build-arg=VERSION={{ .Version }}"
+      - "--build-arg=GIT_COMMIT={{ .Commit }}"
+      - "--build-arg=BUILD_DATE={{ .Date }}"
+
+docker_manifests:
+  - name_template: "ghcr.io/vault-gateway/vault-gateway:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/vault-gateway/vault-gateway:{{ .Version }}-amd64"
+      - "ghcr.io/vault-gateway/vault-gateway:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/vault-gateway/vault-gateway:latest"
+    image_templates:
+      - "ghcr.io/vault-gateway/vault-gateway:latest-amd64"
+      - "ghcr.io/vault-gateway/vault-gateway:latest-arm64"
+
+release:
+  github:
+    owner: vault-gateway
+    name: vault-gateway
+  prerelease: auto

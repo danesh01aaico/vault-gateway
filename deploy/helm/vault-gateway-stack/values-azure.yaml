@@ -1,0 +1,45 @@
+# Azure Key Vault overlay
+# Usage:
+#   helm install vault-stack deploy/helm/vault-gateway-stack \
+#     -n vault-system --create-namespace \
+#     -f deploy/helm/vault-gateway-stack/values-azure.yaml
+#
+# Prerequisites:
+#   1. AKS OIDC issuer enabled on the cluster
+#   2. Azure Workload Identity webhook installed
+#   3. Managed identity with Key Vault Secrets User role on your vault
+#      See: deploy/examples/azure-workload-identity-setup.sh
+#   4. TLS secret created: kubectl create secret tls vault-gateway-tls ...
+
+vault-gateway:
+  serviceAccount:
+    annotations:
+      azure.workload.identity/client-id: "CLIENT_ID"   # replace with your managed identity client ID
+    labels:
+      azure.workload.identity/use: "true"
+
+  podLabels:
+    azure.workload.identity/use: "true"
+
+  config:
+    backend:
+      type: azure
+      cacheTTL: 60s
+
+    azure:
+      vaultURL: "https://YOUR-VAULT-NAME.vault.azure.net"   # replace
+      # namingStrategy: flat (default) or json
+      # flat:  myapp/db#PASSWORD → secret named "myapp-db-PASSWORD" in AKV
+      # json:  myapp/db         → single secret named "myapp-db" with JSON value
+
+    auth:
+      kubernetes:
+        enabled: true
+      roles:
+        - name: default-role
+          namespaces:
+            - "*"
+          serviceAccounts:
+            - "*"
+          paths:
+            - "secret/*"

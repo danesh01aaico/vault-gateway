@@ -1,0 +1,21 @@
+server:
+  port: 8200
+  host: "0.0.0.0"
+  tls:
+    enabled: false
+
+backend: consul
+
+auth:
+  roles:
+    app:
+      allowedNamespaces:
+        - default
+      allowedServiceAccounts:
+        - app-sa
+      allowedPaths:
+        - "secret/data/*"
+
+metrics:
+  enabled: true
+  port: 9090

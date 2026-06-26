@@ -1,0 +1,51 @@
+Vault Gateway Stack installed successfully.
+
+Components deployed:
+  - Vault Gateway       (namespace: {{ .Release.Namespace }})
+  - Bank-Vaults Webhook (namespace: {{ .Release.Namespace }})
+
+Startup order:
+  1. Vault Gateway starts first (system-cluster-critical priority)
+  2. Bank-Vaults webhook waits until /healthz returns 200
+  3. Webhook begins intercepting pod creation
+
+Backend: {{ index .Values "vault-gateway" "config" "backend" "type" }}
+
+NEXT STEPS
+----------
+
+1. Verify both components are running:
+
+   kubectl get pods -n {{ .Release.Namespace }}
+
+2. Annotate your application deployments:
+
+   annotations:
+     vault.security.banzaicloud.io/vault-addr: "https://vault-gateway.{{ .Release.Namespace }}.svc.cluster.local:8200"
+     vault.security.banzaicloud.io/vault-role: "default-role"
+
+3. Use vault: prefixed env var values in your manifests:
+
+   env:
+     - name: DB_PASSWORD
+       value: "vault:secret/data/myapp/database#DB_PASSWORD"
+
+4. Check gateway logs:
+
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name=vault-gateway --tail=50
+
+5. Check metrics:
+
+   kubectl port-forward -n {{ .Release.Namespace }} svc/vault-gateway 9090:9090
+   # open http://localhost:9090/metrics
+
+SECRET ROTATION
+---------------
+
+When a secret is rotated in your cloud SM, trigger a rollout:
+
+  kubectl rollout restart deployment/YOUR_APP -n YOUR_NAMESPACE
+
+Automate via EventBridge (AWS) or Event Grid (Azure).
+Cache TTL: {{ index .Values "vault-gateway" "config" "backend" "cacheTTL" }}.
+Rotated secrets reach new pods within that window.
