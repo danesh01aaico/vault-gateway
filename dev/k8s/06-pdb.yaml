@@ -1,0 +1,14 @@
+---
+# Ensure at least one gateway replica stays up during node drains and rolling updates.
+# Without this, kubectl drain can evict all replicas simultaneously, blocking
+# every pending pod startup that needs secrets.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: vault-gateway
+  namespace: vault-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: vault-gateway

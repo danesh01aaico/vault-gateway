@@ -1,0 +1,44 @@
+# Gateway config for k3d local cluster.
+# LocalStack is on the Docker host at 172.19.0.1:4566 (Docker bridge gateway).
+# TLS is disabled — this is a local dev cluster only.
+
+backend: aws
+
+server:
+  port: 8200
+  host: "0.0.0.0"
+  tls:
+    enabled: false
+
+metrics:
+  enabled: true
+  port: 9090
+
+aws:
+  region: us-east-1
+  # Host machine (Mac) is the Docker bridge gateway inside k3d pods.
+  endpointURL: "http://172.19.0.1:4566"
+
+auth:
+  tokenTTL: 3600s
+  tokenCleanupInterval: 60s
+  maxTokensPerIdentity: 10
+  roles:
+    local-test:
+      allowedNamespaces:
+        - default
+      allowedServiceAccounts:
+        - vault-test
+      allowedPaths:
+        - "myapp/**"
+
+logging:
+  level: info
+  format: json
+
+rateLimit:
+  enabled: false
+
+healthCheck:
+  backendCheck: true
+  backendCheckTimeout: 5s

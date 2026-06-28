@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-gateway
+  namespace: vault-system
+data:
+  config.yaml: |
+    backend: aws
+
+    server:
+      port: 8200
+      host: "0.0.0.0"
+      tls:
+        enabled: true
+        certFile: /etc/vault-gateway/tls/tls.crt
+        keyFile:  /etc/vault-gateway/tls/tls.key
+        minVersion: "1.2"
+
+    metrics:
+      enabled: true
+      port: 9090
+
+    aws:
+      region: us-east-1
+      # 172.19.0.1 is the Docker bridge gateway — the host Mac as seen from k3d pods.
+      endpointURL: "http://172.19.0.1:4566"
+      cache:
+        enabled: true
+        ttl: 30s
+        negativeTTL: 10s
+        maxEntries: 1000
+
+    auth:
+      # Short TTL: tokens are only needed during pod startup.
+      tokenTTL: 5m
+      tokenCleanupInterval: 60s
+      maxTokensPerIdentity: 10
+      roles:
+        local-test:
+          allowedNamespaces:
+            - default
+          allowedServiceAccounts:
+            - vault-test
+          allowedPaths:
+            - "myapp/**"
+
+    logging:
+      level: info
+      format: json
+
+    rateLimit:
+      enabled: true
+      requestsPerSecond: 50
+      burst: 100
+
+    healthCheck:
+      backendCheck: true
+      backendCheckTimeout: 5s

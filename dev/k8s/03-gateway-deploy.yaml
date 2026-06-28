@@ -1,0 +1,124 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-gateway
+  namespace: vault-system
+  labels:
+    app: vault-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vault-gateway
+  template:
+    metadata:
+      labels:
+        app: vault-gateway
+    spec:
+      serviceAccountName: vault-gateway
+      priorityClassName: vault-gateway-critical
+      # Spread replicas across nodes so a single node failure doesn't take down the gateway.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: vault-gateway
+                topologyKey: kubernetes.io/hostname
+      # Pod-level security: non-root, RuntimeDefault seccomp.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vault-gateway
+          image: vault-gateway:local
+          imagePullPolicy: Never
+          args:
+            - "--config"
+            - "/etc/vault-gateway/config.yaml"
+          # LocalStack test credentials only — replace with IRSA annotation in production.
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          # Container-level security: read-only root fs, no privilege escalation, drop all caps.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: api
+              containerPort: 8200
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/vault-gateway/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: tls
+              mountPath: /etc/vault-gateway/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: vault-gateway
+        - name: tls
+          secret:
+            secretName: vault-gateway-tls
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-gateway
+  namespace: vault-system
+  labels:
+    app: vault-gateway
+spec:
+  selector:
+    app: vault-gateway
+  ports:
+    - name: api
+      port: 8200
+      targetPort: api
+    - name: metrics
+      port: 9090
+      targetPort: metrics

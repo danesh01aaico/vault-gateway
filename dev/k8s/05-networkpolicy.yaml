@@ -1,0 +1,37 @@
+---
+# Restricts who can reach vault-gateway's API port (8200).
+# Only pods labelled vault.io/inject=true (in any namespace) may call it.
+# The metrics port (9090) is open to all for Prometheus scraping and kubelet probes.
+#
+# Egress is intentionally left unrestricted (no Egress policyType):
+# vault-gateway needs to reach the Kubernetes API server (TokenReview), DNS,
+# and the cloud secret store endpoint. Rather than enumerate those IPs here
+# (which varies by environment), egress is handled at the service-mesh /
+# firewall layer in production.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-gateway
+  namespace: vault-system
+spec:
+  podSelector:
+    matchLabels:
+      app: vault-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only pods carrying vault.io/inject=true may call the secrets API (port 8200).
+    # namespaceSelector:{} + podSelector = AND: the pod must match the label
+    # in any namespace.
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              vault.io/inject: "true"
+      ports:
+        - port: 8200
+          protocol: TCP
+    # Metrics and health probes — open to all (Prometheus, kubelet).
+    - ports:
+        - port: 9090
+          protocol: TCP

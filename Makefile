@@ -17,7 +17,7 @@ LDFLAGS := -s -w \
 	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
 	-X $(VERSION_PKG).BuildDate=$(BUILD_DATE)
 
-.PHONY: build test test-coverage lint fmt tidy docker helm-lint e2e generate clean all
+.PHONY: build test test-coverage lint fmt tidy docker helm-lint e2e generate clean all local-test
 
 # ---- Targets ---------------------------------------------------------------
 
@@ -72,3 +72,13 @@ generate:
 ## clean: remove build and coverage artifacts
 clean:
 	rm -rf bin/ coverage.out coverage.html
+
+## local-test: full end-to-end test using local binaries + LocalStack (no cloud, no cluster pods)
+## Requires: k3d dev-cluster running, LocalStack running on port 4566
+local-test:
+	@bash dev/local-test.sh
+
+## deploy-k3d: build image, deploy vault-gateway to k3d, run test pod, verify secret injection
+## Requires: k3d dev-cluster running, LocalStack running on port 4566
+deploy-k3d:
+	@bash dev/deploy-k3d.sh

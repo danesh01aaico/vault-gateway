@@ -1,0 +1,44 @@
+# Local development gateway configuration.
+# Uses LocalStack for AWS Secrets Manager — no cloud creds needed.
+# Run via: make local-test
+
+backend: aws
+
+server:
+  port: 8200
+  host: "127.0.0.1"
+  tls:
+    enabled: false
+
+metrics:
+  enabled: true
+  port: 9090
+
+aws:
+  region: us-east-1
+  # LocalStack endpoint — running locally via Docker
+  endpointURL: "http://localhost:4566"
+
+auth:
+  tokenTTL: 3600s
+  tokenCleanupInterval: 60s
+  maxTokensPerIdentity: 10
+  roles:
+    local-test:
+      allowedNamespaces:
+        - default
+      allowedServiceAccounts:
+        - vault-test
+      allowedPaths:
+        - "myapp/**"
+
+logging:
+  level: info
+  format: text
+
+rateLimit:
+  enabled: false
+
+healthCheck:
+  backendCheck: true
+  backendCheckTimeout: 5s

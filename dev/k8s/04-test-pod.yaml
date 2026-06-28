@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-test
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-test
+  namespace: default
+  labels:
+    app: secret-test
+    # Required by the NetworkPolicy: only pods with this label can reach vault-gateway:8200.
+    vault.io/inject: "true"
+spec:
+  serviceAccountName: vault-test
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  initContainers:
+    - name: copy-vault-inject
+      image: vault-gateway:local
+      imagePullPolicy: Never
+      command: ["/vault-env", "copy", "/vault"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      volumeMounts:
+        - name: vault-bin
+          mountPath: /vault
+  containers:
+    - name: test-app
+      image: busybox
+      imagePullPolicy: IfNotPresent
+      command: ["/vault/vault-env", "env"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      env:
+        - name: VAULT_ADDR
+          value: "https://vault-gateway.vault-system.svc.cluster.local:8200"
+        - name: VAULT_ROLE
+          value: "local-test"
+        # CA cert of the self-signed gateway TLS cert — mounted from ConfigMap.
+        - name: VAULT_CACERT
+          value: "/vault/ca/ca.crt"
+        - name: DB_PASSWORD
+          value: "vault:secret/data/myapp/db-password#password"
+        - name: DB_USER
+          value: "vault:secret/data/myapp/db-password#username"
+        - name: APP_ENV
+          value: "local-k3d"
+      volumeMounts:
+        - name: vault-bin
+          mountPath: /vault
+        - name: gateway-ca
+          mountPath: /vault/ca
+          readOnly: true
+  volumes:
+    - name: vault-bin
+      emptyDir: {}
+    - name: gateway-ca
+      configMap:
+        name: vault-gateway-ca

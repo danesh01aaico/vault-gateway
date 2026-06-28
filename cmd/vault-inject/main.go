@@ -62,8 +62,13 @@ const (
 	defaultAddr    = "https://vault-gateway.vault-system.svc.cluster.local:8200"
 	defaultRole    = "default-role"
 	defaultJWTFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	loginTimeout   = 30 * time.Second
-	readTimeout    = 15 * time.Second
+)
+
+// Timeouts are vars so VAULT_LOGIN_TIMEOUT / VAULT_READ_TIMEOUT env vars can
+// override them at startup, and tests can set them directly.
+var (
+	loginTimeout = 30 * time.Second
+	readTimeout  = 15 * time.Second
 )
 
 // vaultEnvVars are stripped from the child process environment so that
@@ -86,6 +91,8 @@ var vaultEnvVars = map[string]bool{
 	"VAULT_LOG_LEVEL":              true,
 	"VAULT_JWT_FILE":               true,
 	"VAULT_CACERT_RELOAD":          true,
+	"VAULT_LOGIN_TIMEOUT":          true,
+	"VAULT_READ_TIMEOUT":           true,
 }
 
 // fetchFunc fetches a secret path and returns its key-value map.
@@ -116,6 +123,18 @@ func run() error {
 		return fmt.Errorf("usage: vault-env <command> [args...]\n       vault-env copy <destination-dir>")
 	}
 
+	// Allow per-deployment timeout tuning without a rebuild.
+	if v := os.Getenv("VAULT_LOGIN_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			loginTimeout = d
+		}
+	}
+	if v := os.Getenv("VAULT_READ_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			readTimeout = d
+		}
+	}
+
 	addr := getenv("VAULT_ADDR", defaultAddr)
 	role := getenv("VAULT_ROLE", defaultRole)
 	jwtFile := getenv("VAULT_JWT_FILE", defaultJWTFile)
@@ -142,8 +161,12 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), loginTimeout)
 	defer cancel()
 
-	token, err := cl.login(ctx, role, strings.TrimSpace(string(jwtBytes)))
-	if err != nil {
+	var token string
+	if err = withRetry(3, 500*time.Millisecond, func() error {
+		var loginErr error
+		token, loginErr = cl.login(ctx, role, strings.TrimSpace(string(jwtBytes)))
+		return loginErr
+	}); err != nil {
 		return fmt.Errorf("vault login: %w", err)
 	}
 	cl.token = token
@@ -310,6 +333,31 @@ func copyBinary(logger *slog.Logger) error {
 	return nil
 }
 
+// ---- retry -----------------------------------------------------------------
+
+// withRetry calls fn up to maxAttempts times with exponential backoff.
+// It stops immediately if the error is a definitive server-side rejection
+// (HTTP 4xx) since retrying a bad credential or missing secret is pointless.
+func withRetry(maxAttempts int, base time.Duration, fn func() error) error {
+	var err error
+	for i := 0; i < maxAttempts; i++ {
+		err = fn()
+		if err == nil || !isRetryable(err) {
+			return err
+		}
+		if i < maxAttempts-1 {
+			time.Sleep(base << uint(i))
+		}
+	}
+	return err
+}
+
+// isRetryable returns false for HTTP 4xx responses (auth failures, not-found)
+// which are deterministic and should not be retried.
+func isRetryable(err error) bool {
+	return err != nil && !strings.Contains(err.Error(), "HTTP 4")
+}
+
 // ---- HTTP client -----------------------------------------------------------
 
 type vaultClient struct {
@@ -358,7 +406,10 @@ type loginResponse struct {
 }
 
 func (c *vaultClient) login(ctx context.Context, role, jwt string) (string, error) {
-	body, _ := json.Marshal(loginRequest{Role: role, JWT: jwt})
+	body, err := json.Marshal(loginRequest{Role: role, JWT: jwt})
+	if err != nil {
+		return "", fmt.Errorf("marshal login request: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.addr+"/v1/auth/kubernetes/login", bytes.NewReader(body))

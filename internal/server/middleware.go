@@ -218,6 +218,8 @@ func (m *Middleware) securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Cache-Control", "no-store")
+		// Gateway serves only JSON — no scripts, styles, frames, or media.
+		h.Set("Content-Security-Policy", "default-src 'none'")
 		if m.tlsEnabled {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}

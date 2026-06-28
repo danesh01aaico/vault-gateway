@@ -1,0 +1,11 @@
+---
+# vault-gateway must start before any app pod that needs secrets injected.
+# This priority class ensures it is scheduled ahead of normal workloads and
+# is not evicted under node memory pressure in favour of lower-priority pods.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: vault-gateway-critical
+value: 1000000
+globalDefault: false
+description: "vault-gateway starts before app workloads that depend on secret injection"
