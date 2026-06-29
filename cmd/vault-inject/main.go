@@ -183,7 +183,7 @@ func run() error {
 	}
 
 	logger.Debug("exec into application", "binary", binary)
-	return syscall.Exec(binary, os.Args[1:], newEnv)
+	return syscall.Exec(binary, os.Args[1:], newEnv) //nolint:gosec // binary comes from exec.LookPath
 }
 
 // resolveEnviron resolves vault: prefixed values in environ and returns a new
@@ -312,9 +312,9 @@ func copyBinary(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("open binary: %w", err)
 	}
-	defer src.Close()
+	defer src.Close() //nolint:errcheck // read-only; close error is not meaningful
 
-	if err := os.MkdirAll(dest, 0o755); err != nil {
+	if err := os.MkdirAll(dest, 0o750); err != nil {
 		return fmt.Errorf("create destination dir: %w", err)
 	}
 
@@ -323,10 +323,13 @@ func copyBinary(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("create destination file: %w", err)
 	}
-	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
+		_ = dst.Close()
 		return fmt.Errorf("copy binary: %w", err)
+	}
+	if err := dst.Close(); err != nil {
+		return fmt.Errorf("close destination file: %w", err)
 	}
 
 	logger.Info("vault-env binary copied", "destination", destPath)
@@ -406,23 +409,23 @@ type loginResponse struct {
 }
 
 func (c *vaultClient) login(ctx context.Context, role, jwt string) (string, error) {
-	body, err := json.Marshal(loginRequest{Role: role, JWT: jwt})
+	body, err := json.Marshal(loginRequest{Role: role, JWT: jwt}) //nolint:gosec // intentional JWT serialization
 	if err != nil {
 		return "", fmt.Errorf("marshal login request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, //nolint:gosec // VAULT_ADDR is operator-controlled config
 		c.addr+"/v1/auth/kubernetes/login", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.http.Do(req) //nolint:gosec // VAULT_ADDR is operator-controlled config
 	if err != nil {
 		return "", fmt.Errorf("login request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	var result loginResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -451,18 +454,18 @@ type secretResponse struct {
 }
 
 func (c *vaultClient) readSecret(ctx context.Context, path string) (map[string]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, //nolint:gosec // VAULT_ADDR is operator-controlled config
 		c.addr+"/v1/"+path, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("X-Vault-Token", c.token)
 
-	resp, err := c.http.Do(req)
+	resp, err := c.http.Do(req) //nolint:gosec // VAULT_ADDR is operator-controlled config
 	if err != nil {
 		return nil, fmt.Errorf("secret read request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("secret not found: %s", path)

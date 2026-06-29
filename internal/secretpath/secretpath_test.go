@@ -122,7 +122,7 @@ func TestValidate_ShellMetacharacters(t *testing.T) {
 		"secret/$PATH",
 		"secret/`cmd`",
 		"secret/$(cmd)",
-		"secret/my app",  // space
+		"secret/my app", // space
 		"secret/a&b",
 		"secret/a|b",
 		"secret/a;b",
