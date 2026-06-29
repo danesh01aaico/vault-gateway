@@ -314,7 +314,8 @@ func copyBinary(logger *slog.Logger) error {
 	}
 	defer src.Close() //nolint:errcheck // read-only; close error is not meaningful
 
-	if err := os.MkdirAll(dest, 0o750); err != nil { //nolint:gosec // dest is filepath.Clean'd; operator-controlled arg
+	//nolint:gosec // dest is filepath.Clean'd; operator-controlled init-container arg
+	if err := os.MkdirAll(dest, 0o750); err != nil {
 		return fmt.Errorf("create destination dir: %w", err)
 	}
 
