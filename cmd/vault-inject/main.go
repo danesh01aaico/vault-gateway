@@ -300,7 +300,7 @@ func resolveEnviron(
 func copyBinary(logger *slog.Logger) error {
 	dest := "/vault"
 	if len(os.Args) >= 3 {
-		dest = os.Args[2]
+		dest = filepath.Clean(os.Args[2])
 	}
 
 	self, err := os.Executable()
@@ -314,7 +314,7 @@ func copyBinary(logger *slog.Logger) error {
 	}
 	defer src.Close() //nolint:errcheck // read-only; close error is not meaningful
 
-	if err := os.MkdirAll(dest, 0o750); err != nil {
+	if err := os.MkdirAll(dest, 0o750); err != nil { //nolint:gosec // dest is filepath.Clean'd; operator-controlled arg
 		return fmt.Errorf("create destination dir: %w", err)
 	}
 
